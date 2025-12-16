@@ -104,7 +104,7 @@ __global__ void elementwise_add_f16x8_kernel(half *a, half *b, half *c, int N)
   LDST128BITS(pack_b[0]) = LDST128BITS(b[idx]);
   for (int i = 0; i < 8; i+=2)
   {
-    HALF2(pack_c[i]) = __hadd(HALF2(pack_a[i]),HALF2(pack_b[i]));
+    HALF2(pack_c[i]) = __hadd2(HALF2(pack_a[i]),HALF2(pack_b[i]));
   }
   if(idx + 7 < N)
   {
