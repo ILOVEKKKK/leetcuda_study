@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 #include <algorithm>
 #include <cuda_bf16.h>
 #include <cuda_fp16.h>
@@ -20,12 +21,18 @@
 #define LDST128BITS(value) (reinterpret_cast<float4 *>(&(value))[0])
 
 //fp32加法-无优化
+=======
+#include <iostream>
+#include <vector>
+
+>>>>>>> b0156aff4be03fc565fa0105dc34d0a21b4ed7c0
 __global__ void elementwise_add_f32_kernel(const float *a, const float *b, float *c,
                                            int N) 
 {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx < N)
     c[idx] = a[idx] + b[idx];
+<<<<<<< HEAD
 }
 
 //fp32加法-向量化加载优化
@@ -104,4 +111,6 @@ __global__ void elementwise_add_f16x8_kernel(half *a, half *b, half *c, int N)
 {
     int idx = 8*(blockIdx.x*blockDim.x+threadIdx.x);
     half pack_a[8],pack_b[8],pack_c[8]
+=======
+>>>>>>> b0156aff4be03fc565fa0105dc34d0a21b4ed7c0
 }
