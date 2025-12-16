@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 #include <algorithm>
 #include <cuda_bf16.h>
 #include <cuda_fp16.h>
@@ -7,8 +6,6 @@
 #include <float.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <torch/extension.h>
-#include <torch/types.h>
 #include <vector>
 
 #define WARP_SIZE 32
@@ -21,22 +18,16 @@
 #define LDST128BITS(value) (reinterpret_cast<float4 *>(&(value))[0])
 
 //fp32加法-无优化
-=======
-#include <iostream>
-#include <vector>
-
->>>>>>> b0156aff4be03fc565fa0105dc34d0a21b4ed7c0
 __global__ void elementwise_add_f32_kernel(const float *a, const float *b, float *c,
                                            int N) 
 {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx < N)
     c[idx] = a[idx] + b[idx];
-<<<<<<< HEAD
 }
 
 //fp32加法-向量化加载优化
-__global__ void elementwise_add_f32x4_pack_kernel(const float *a, const float *b, float *c,
+__global__ void elementwise_add_f32x4_pack_kernel(float *a, float *b, float *c,
                                                   int N)
 {
     int idx = 4*(blockIdx.x*blockDim.x+threadIdx.x);
@@ -46,14 +37,14 @@ __global__ void elementwise_add_f32x4_pack_kernel(const float *a, const float *b
         float4 reg_b = FLOAT4(b[idx]);
         float4 reg_c;
         reg_c.w = reg_a.w+reg_b.w;
-        reg_c.xw = reg_a.x+reg_b.x;
+        reg_c.x = reg_a.x+reg_b.x;
         reg_c.y = reg_a.y+reg_b.y;
         reg_c.z = reg_a.z+reg_b.z;
         FLOAT4(c[idx]) = reg_c;
     }
 }
 
-__global__ void elementwise_add_f16x2_pack_kernel(const float *a, const float *b, float *c,
+__global__ void elementwise_add_f16x2_pack_kernel(float *a, float *b, float *c,
                                            int N)
 {
     int idx = 2*(blockIdx.x*blockDim.x+threadIdx.x);
@@ -64,10 +55,8 @@ __global__ void elementwise_add_f16x2_pack_kernel(const float *a, const float *b
         half2 reg_c;
         /*使用 __hadd 可以确保编译器生成的是原生的、最高效的FP16加法指令。它避免了编译器可能做出的“自作主张”的优化，比如为了精度，它可能会先把两个half提升(promote)到32位的float，
         进行32位加法，然后再把结果转换(demote)回16位的half。这个“提升-计算-降级”的过程会引入不必要的开销，比直接执行16位加法要慢。 */
-        reg_c.w = __hadd(reg_a.w, reg_b.w);
         reg_c.x = __hadd(reg_a.x, reg_b.x);
         reg_c.y = __hadd(reg_a.y, reg_b.y);
-        reg_c.z = __hadd(reg_a.z, reg_b.z);
         HALF2(c[idx]) = reg_c;
     }
 }
@@ -107,10 +96,25 @@ __global__ void elementwise_add_f16x8_kernel(half *a, half *b, half *c, int N) {
 }
 
 //128位总线一次读取128位数据，即8个fp16数据，并进行处理
-__global__ void elementwise_add_f16x8_kernel(half *a, half *b, half *c, int N) 
+__global__ void elementwise_add_f16x8_kernel(half *a, half *b, half *c, int N)
 {
-    int idx = 8*(blockIdx.x*blockDim.x+threadIdx.x);
-    half pack_a[8],pack_b[8],pack_c[8]
-=======
->>>>>>> b0156aff4be03fc565fa0105dc34d0a21b4ed7c0
+  int idx = 8 * (blockIdx.x * blockDim.x + threadIdx.x);
+  half pack_a[8], pack_b[8], pack_c[8];
+  LDST128BITS(pack_a[0]) = LDST128BITS(a[idx]);
+  LDST128BITS(pack_b[0]) = LDST128BITS(b[idx]);
+  for (int i = 0; i < 8; i+=2)
+  {
+    HALF2(pack_c[i]) = __hadd(HALF2(pack_a[i]),HALF2(pack_b[i]));
+  }
+  if(idx + 7 < N)
+  {
+    LDST128BITS(c[idx]) = LDST128BITS(pack_c[0]);
+  }
+  else
+  {
+    for(int i = 0;idx + i < N;i++)
+    {
+      c[idx+i] = __hadd(a[idx+i],b[idx+i]);
+    }
+  }
 }
