@@ -31,7 +31,8 @@ __global__ void elementwise_add_f32x4_pack_kernel(float *a, float *b, float *c,
                                                   int N)
 {
     int idx = 4*(blockIdx.x*blockDim.x+threadIdx.x);
-    if(idx < N)
+    //边界检查，确认够4个元素进行向量化加载
+    if(idx + 3 < N)
     {
         float4 reg_a = FLOAT4(a[idx]);
         float4 reg_b = FLOAT4(b[idx]);
@@ -42,13 +43,20 @@ __global__ void elementwise_add_f32x4_pack_kernel(float *a, float *b, float *c,
         reg_c.z = reg_a.z+reg_b.z;
         FLOAT4(c[idx]) = reg_c;
     }
+    else
+    {
+      for(int i = idx;i<N;++i)
+      {
+        c[i] = a[i] + b[i];
+      }
+    }
 }
 
 __global__ void elementwise_add_f16x2_pack_kernel(float *a, float *b, float *c,
                                            int N)
 {
     int idx = 2*(blockIdx.x*blockDim.x+threadIdx.x);
-    if(idx < N)
+    if(idx + 1 < N)
     {
         half2 reg_a = HALF2(a[idx]);
         half2 reg_b = HALF2(b[idx]);
@@ -58,6 +66,13 @@ __global__ void elementwise_add_f16x2_pack_kernel(float *a, float *b, float *c,
         reg_c.x = __hadd(reg_a.x, reg_b.x);
         reg_c.y = __hadd(reg_a.y, reg_b.y);
         HALF2(c[idx]) = reg_c;
+    }
+    else
+    {
+      for(int i = idx;i<N;++i)
+      {
+        c[i] = a[i] + b[i];
+      }
     }
 }
 
@@ -102,10 +117,12 @@ __global__ void elementwise_add_f16x8_kernel(half *a, half *b, half *c, int N)
   half pack_a[8], pack_b[8], pack_c[8];
   LDST128BITS(pack_a[0]) = LDST128BITS(a[idx]);
   LDST128BITS(pack_b[0]) = LDST128BITS(b[idx]);
+  //两个两个fp16为一个单位加载到pack_c中，并进行运算
   for (int i = 0; i < 8; i+=2)
   {
     HALF2(pack_c[i]) = __hadd2(HALF2(pack_a[i]),HALF2(pack_b[i]));
   }
+  //一次将128位数据写入c中
   if(idx + 7 < N)
   {
     LDST128BITS(c[idx]) = LDST128BITS(pack_c[0]);
