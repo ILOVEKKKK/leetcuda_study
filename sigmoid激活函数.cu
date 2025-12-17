@@ -73,6 +73,59 @@ __global__ void sigmoid_f16_kernel(float* x,float* y,int N)
     }
 }
 
+//sigmoid算子fp16版本，向量化加载一次读取两个
+__global__ void sigmoid_f16x2_kernel(half* x,half* y,int N)
+{
+    int idx = 2 * (blockIdx.x*blockDim.x+threadIdx.x);
+    if(idx + 1 < N)
+    {
+        const half v = __float2half(1.0f);
+        half2 reg_x = HALF2(x[idx]);
+        half2 reg_y;
+        reg_x.x = __hmin(__hmax(reg_x.x,MIN_EXP_F16),MAX_EXP_F16);
+        reg_x.y = __hmin(__hmax(reg_x.y,MIN_EXP_F16),MAX_EXP_F16);
+        reg_y.x = v/v+hexp(-reg_x.x);
+        reg_y.y = v/v+hexp(-reg_x.y);
+        HALF2(y[idx]) = reg_y;
+    }
+    else
+    {
+        if(idx < N)
+        {
+            y[idx] = reg_y.x;
+        }
+    }
+}
+
+//sigmoid算子，一次读取128字节
+__global__ void sigmoid_f16x8_kernel(half* x,half* y,int N)
+{
+    int idx = 8*(blockIdx.x*blockDim.x+threadIdx.x);
+    const half f = __float2half(1.0f);
+    //边界检查
+    if(idx + 7 < N)
+    {
+        half pack_x[8],pack_y[8];//利用寄存器存储读取进来的数据
+        LDST128BITS(pack_x[0]) = LDST128BITS(x[idx]);
+        #pragma unroll//展开循环体用GPU并行特性节省循环开销
+        for(int i = 0;i<8;++i)
+        {
+            half v = __hmin(__hmax(pack_x[i],MIN_EXP_F16),MAX_EXP_F16);
+            pack_y[i] = f/(f+hexp(-v));
+        }
+        LDST128BITS(y[idx]) = LDST128BITS(pack_y[0]);
+    }
+    else
+    {
+        for(int i = idx;i < N;++i)
+        {
+            half v = __hmin(__hmax(x[i],MIN_EXP_F16),MAX_EXP_F16);
+            y[i] = f/(f+hexp(-v));
+        }
+    }
+}
+
+
 
 
 
