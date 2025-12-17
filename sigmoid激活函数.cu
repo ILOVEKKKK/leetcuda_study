@@ -35,8 +35,8 @@ __global__ void sigmoid_f32_kernel(float* x, float* y,int N)
 __global__ void sigmoid_f32x4_kernel(float* x,float* y,int N)
 {
     int idx = 4*(blockIdx.x*blockDim.x+threadIdx.x);
-
-    if (idx < N)
+    //边界检查
+    if (idx + 3 < N)
     {
         float4 reg_x = FLOAT4(x[idx]);
         float4 reg_y;
@@ -50,9 +50,6 @@ __global__ void sigmoid_f32x4_kernel(float* x,float* y,int N)
         reg_y.y = 1.0f / (1.0f + expf(-reg_x.y));
         reg_y.z = 1.0f / (1.0f + expf(-reg_x.z));
         reg_y.w = 1.0f / (1.0f + expf(-reg_x.w));
-    }
-    if(idx + 3 < N)
-    {
         FLOAT4(y[idx]) = reg_y;
     }
     else
@@ -75,5 +72,7 @@ __global__ void sigmoid_f16_kernel(float* x,float* y,int N)
         y[idx] = f/(f+hexp(-v));
     }
 }
+
+
 
 
