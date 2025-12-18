@@ -36,7 +36,7 @@ __global__ void mat_transpose_fp32_col2row_kernel(float* x,float* y,const int ro
     }
 }
 
-//矩阵转置算子，fp32数据格式，使用共享内存优化内存访问模式
+//矩阵转置算子，fp32数据格式，使用共享内存优化内存访问模式,重点掌握
 __global__ void mat_transpose_fp32_col2row_kernel(float* x,float* y,const int row,const int col)
 {
     __shared__ float tile[TILE_DIM][TILE_DIM];
@@ -60,7 +60,20 @@ __global__ void mat_transpose_fp32_col2row_kernel(float* x,float* y,const int ro
 
 }
 
-__global__ void mat_transpose_fp32_col2row_kernel(float* x,float* y,const int row,const int col)
+__global__ void mat_transpose_fp32x4_row2col_kernel(float* x,float* y,const int row,const int col)
 {
-    
+    //组织一维block并行计算
+    int global_idx = 4*(blockIdx.x*blockDim.x+threadIdx.x);
+    int global_row = global_idx/row;
+    int global_col = global_idx%col;
+
+    if(global_row < row && global_col < col)
+    {
+        float4 x_val;
+        x_val.x = x[global_row*col+global_col];
+        x_val.y = x[(global_row+1)*col+global_col];
+        x_val.z = x[(global_row+2)*col+global_col];
+        x_val.w = x[(global_row+3)*col+global_col];
+        reinterpret_cast<float4*>(y)[global_idx] = FLOAT4(x_val);
+    }
 }
