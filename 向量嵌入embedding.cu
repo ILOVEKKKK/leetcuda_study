@@ -48,4 +48,3 @@ __global__ void embedding_fp32x4_kernel(const int *idx,float* weight,float* outp
     }
 }
 
-__global__ void 
